@@ -143,28 +143,45 @@ class NSphere:
 
     def get_average_l2_distance_matrix(self):
         """Returns a 1d np array with the average distance to other points for each point"""
-        return self.get_l2_distance_matrix().sum(axis=0)
+        return self.get_l2_distance_matrix().sum(axis=0)/self.num_points
 
     def get_average_cosine_distance_matrix(self):
         """Returns a 1d np array with the average distance to other points for each point"""
-        return self.get_cosine_distance_matrix().sum(axis=0)
+        return self.get_cosine_distance_matrix().sum(axis=0)/self.num_points
 
 
 s = NSphere(1, 6)
 print(f'Circle with 6 points l2 distance and averages')
 print(s.get_l2_distance_matrix().round(4))
 print(s.get_average_l2_distance_matrix().round(4))
+print('')
 
 print(f'Circle with 6 points cosine distance and averages')
 print(s.get_cosine_distance_matrix().round(4))
 print(s.get_average_cosine_distance_matrix().round(4))
+print('\n\n')
+
 
 s2 = NSphere(2, 10)
 
 print(f'Sphere (fibonacci lattice) with 10 points l2 distance and averages')
 print(s2.get_l2_distance_matrix().round(3))
 print(s2.get_average_l2_distance_matrix().round(3))
+print('')
 
 print(f'Sphere (fibonacci lattice) with 10 points cosine distance and averages')
 print(s2.get_cosine_distance_matrix().round(3))
 print(s2.get_average_cosine_distance_matrix().round(3))
+print('\n\n')
+
+s3 = NSphere(1, 1000)
+
+print(f'Circle with 1000 points l2 distance and averages')
+print(s3.get_l2_distance_matrix().round(3))
+print(s3.get_average_l2_distance_matrix().round(3))
+print('')
+
+print(f'Circle with 1000 points cosine distance and averages')
+print(s3.get_cosine_distance_matrix().round(3))
+print(s3.get_average_cosine_distance_matrix().round(3))
+print('\n\n')
