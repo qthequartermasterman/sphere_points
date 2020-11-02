@@ -1,7 +1,18 @@
 from typing import Tuple
 from math import sqrt, sin, cos, pi
 import numpy as np
+from scipy.optimize import minimize
+from random import random
 
+"""
+There is a somewhat decent bound on the the max distance that is described in this Math overflow answer:
+https://mathoverflow.net/questions/167793/bound-on-maximum-distance-between-points-on-a-unit-n-sphere
+
+m Points on a d-sphere have a maximum possible distance of D
+m*V(d, 2 arcsin(D(m, d)/4) ) < 1, where V(d, r) is the hyperspherical cap function.
+https://en.wikipedia.org/wiki/Spherical_cap#Hyperspherical_cap
+
+"""
 
 class Point:
     def __init__(self, coordinates: Tuple[float], r=1):
@@ -22,6 +33,7 @@ class Point:
             coordinate = self.r
             coordinate *= sin(self.spherical_coordinates[j])
             rectangular_coordinates.append(coordinate)
+        print(len(rectangular_coordinates), (sum(coor**2 for coor in rectangular_coordinates)))
         return tuple(rectangular_coordinates)
 
     def __len__(self):
@@ -103,6 +115,11 @@ class NSphere:
             self.fibonacci_lattice()
         else:
             """
+            For 3-spheres and larger, we can slowly, non-deterministically, yet still practically approach somewhat of 
+            a stable solution. Start with randomly placing points across the n-sphere, then maximize the minimum l2 
+            distance of the points. This rarely finds an exact solution (likely since they don't exist), but seems to
+            always get close.
+            
             For 3-spheres and larger, this problem gets REALLY hard. I am still trying to wrap my head around this case.
             I cannot find any resources that show that there are ANY exact solutions for large n-spheres. A lot of the 
             literature on this problem is applied to error codes and code correction, so I'm having to learn a lot.
@@ -114,7 +131,11 @@ class NSphere:
             Reference:
             List of approximately ideal spherical codes -- http://neilsloane.com/packings/
             """
-            raise NotImplementedError
+            # raise NotImplementedError
+            for i in range(self.num_points):
+                coordinates: tuple[float] = tuple([2*pi * random() for _ in range(self.dimension)])
+                self.points.append(Point(coordinates))
+            self.optimize_input_coordinates()
 
     def fibonacci_lattice(self):
         """Spread out the points using the fibonacci lattice
@@ -149,39 +170,123 @@ class NSphere:
         """Returns a 1d np array with the average distance to other points for each point"""
         return self.get_cosine_distance_matrix().sum(axis=0)/self.num_points
 
+    def points_from_matrix(self, angle_matrix: np.array, num_points: int, num_dimensions: int):
+        """Takes a (num_points * num dimensions) and turns it into the points on the sphere"""
+        angle_matrix = angle_matrix.reshape(-1, 1)
+        angle_matrix = angle_matrix.reshape((num_points, num_dimensions))  # Put it in an easier to work with shape
+        self.points = []
+        for point in angle_matrix:
+            self.points.append(Point(tuple(point)))
 
-s = NSphere(1, 6)
-print(f'Circle with 6 points l2 distance and averages')
-print(s.get_l2_distance_matrix().round(4))
-print(s.get_average_l2_distance_matrix().round(4))
-print('')
+    def matrix_from_points(self):
+        matrix = np.vstack(tuple(point.spherical_coordinates for point in self.points)).ravel()
+        return matrix
 
-print(f'Circle with 6 points cosine distance and averages')
-print(s.get_cosine_distance_matrix().round(4))
-print(s.get_average_cosine_distance_matrix().round(4))
-print('\n\n')
+    def get_complete_average_l2_distance(self, points_matrix: np.array) -> float:
+        """
+        Returns the average over all points of the average l2 distance from a fixed point to other points.
+        :param points_matrix: a 1D numpy array of the point coordinates back to back.
+        :return: float representing the average of the average distances
+        """
+        self.points_from_matrix(points_matrix, self.num_points, self.dimension)
+        return self.get_average_l2_distance_matrix().mean()
+
+    def get_complete_max_l2_distance(self, points_matrix: np.array) -> float:
+        """
+        Returns the max over all points of the average l2 distance from a fixed point to other points.
+        :param points_matrix: a 1D numpy array of the point coordinates back to back.
+        :return: float representing the max of the average distances
+        """
+        self.points_from_matrix(points_matrix, self.num_points, self.dimension)
+        return self.get_average_l2_distance_matrix().max()
+
+    def get_complete_min_l2_distance(self, points_matrix: np.array) -> float:
+        """
+        Returns the max over all points of the average l2 distance from a fixed point to other points.
+        :param points_matrix: a 1D numpy array of the point coordinates back to back.
+        :return: float representing the max of the average distances
+        """
+        self.points_from_matrix(points_matrix, self.num_points, self.dimension)
+        return self.get_average_l2_distance_matrix().min()
+
+    def get_complete_min_l2_distance_reciprical(self, points_matrix: np.array) -> float:
+        """Returns the reciprocal of self.get_complete_min_l2_distance, since scipy.optimize doesn't have a
+        maximize function?"""
+        return 1/self.get_complete_min_l2_distance(points_matrix)
+
+    def optimize_input_coordinates(self):
+        """Uses some vector calculus magic to attempt to optimize the input coordinates.
+        NOTE: This is incredibly slow compared to the fibonacci lattice method, so I recommend starting with that one,
+        for d = 2.
+        """
+        points_matrix = self.matrix_from_points()
+        optimized_result = minimize(self.get_complete_min_l2_distance_reciprical, points_matrix)
+        self.points_from_matrix(optimized_result.x, self.num_points, self.dimension)
 
 
-s2 = NSphere(2, 10)
+if __name__ == '__main__':
+    s = NSphere(1, 6)
+    print(f'Circle with 6 points l2 distance and averages')
+    l2_matrix = s.get_l2_distance_matrix().round(4)
+    print('l2 matrix:', l2_matrix)
+    print('average l2 distances:', s.get_average_l2_distance_matrix().round(4))
+    print('coordinate matrix:', s.matrix_from_points())
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('Now, we will run the optimizer on this as a sanity check.')
+    s.optimize_input_coordinates()
+    print('l2 matrix:', s.get_l2_distance_matrix().round(4))
+    print('average l2 distances:', s.get_average_l2_distance_matrix().round(4))
+    print('coordinate matrix:', s.matrix_from_points())
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('')
 
-print(f'Sphere (fibonacci lattice) with 10 points l2 distance and averages')
-print(s2.get_l2_distance_matrix().round(3))
-print(s2.get_average_l2_distance_matrix().round(3))
-print('')
+    print(f'Circle with 6 points cosine distance and averages')
+    print(s.get_cosine_distance_matrix().round(4))
+    print(s.get_average_cosine_distance_matrix().round(4))
+    print('\n\n')
 
-print(f'Sphere (fibonacci lattice) with 10 points cosine distance and averages')
-print(s2.get_cosine_distance_matrix().round(3))
-print(s2.get_average_cosine_distance_matrix().round(3))
-print('\n\n')
 
-s3 = NSphere(1, 1000)
+    s2 = NSphere(2, 10)
 
-print(f'Circle with 1000 points l2 distance and averages')
-print(s3.get_l2_distance_matrix().round(3))
-print(s3.get_average_l2_distance_matrix().round(3))
-print('')
+    print(f'Sphere (fibonacci lattice) with 10 points l2 distance and averages')
+    l2_matrix = s2.get_l2_distance_matrix()
+    print('l2 matrix:\n', l2_matrix.round(3))
+    print('average l2 distances:', s2.get_average_l2_distance_matrix().round(3))
+    print('coordinate matrix:\n', s2.matrix_from_points())
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('Now, we will run the optimizer on this as a sanity check.')
+    s.optimize_input_coordinates()
+    print('l2 matrix:\n', s2.get_l2_distance_matrix().round(4))
+    l2_matrix = s2.get_l2_distance_matrix().round(4)
+    print('average l2 distances:', l2_matrix.round(3))
+    print('coordinate matrix:\n', s2.matrix_from_points())
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('')
 
-print(f'Circle with 1000 points cosine distance and averages')
-print(s3.get_cosine_distance_matrix().round(3))
-print(s3.get_average_cosine_distance_matrix().round(3))
-print('\n\n')
+    print(f'Sphere (fibonacci lattice) with 10 points cosine distance and averages')
+    print(s2.get_cosine_distance_matrix().round(3))
+    print(s2.get_average_cosine_distance_matrix().round(3))
+    print('\n\n')
+
+    s3 = NSphere(1, 100)
+
+    print(f'Circle with 100 points l2 distance and averages')
+    l2_matrix = s3.get_l2_distance_matrix()
+    print(l2_matrix.round(3))
+    print(s3.get_average_l2_distance_matrix().round(3))
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('')
+
+    print(f'Circle with 100 points cosine distance and averages')
+    print(s3.get_cosine_distance_matrix().round(3))
+    print(s3.get_average_cosine_distance_matrix().round(3))
+    print('\n\n')
+
+    s4 = NSphere(3, 10)
+    print(f'3-sphere with 10 points l2 distance and averages')
+    l2_matrix = s4.get_l2_distance_matrix()
+    print('l2 matrix:\n', l2_matrix.round(3))
+    print('average l2 distances:', s4.get_average_l2_distance_matrix().round(4))
+    print('coordinate matrix:\n', s4.matrix_from_points())
+    print('Maximum distance between two points: ', l2_matrix.max())
+    print('\n\n')
