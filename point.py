@@ -23,17 +23,22 @@ class Point:
     def spherical_to_rectangular(self):
         """See https://en.wikipedia.org/wiki/N-sphere#Spherical_coordinates for details on hyperspherical coordinates"""
         rectangular_coordinates = []
+        #The first n coordinates are of the form sin(t1)*sin(t2)*...*sin(t_n-1)*cos(t_n)
         for i in range(len(self.spherical_coordinates)):
             coordinate = self.r
-            for j in range(i-1):
+            for j in range(i):
                 coordinate *= sin(self.spherical_coordinates[j])
             coordinate *= cos(self.spherical_coordinates[i])
             rectangular_coordinates.append(coordinate)
+
+        # We need the final coordinate now that is all sin
+        coordinate = self.r
         for j in range(len(self.spherical_coordinates)):
-            coordinate = self.r
             coordinate *= sin(self.spherical_coordinates[j])
-            rectangular_coordinates.append(coordinate)
-        print(len(rectangular_coordinates), (sum(coor**2 for coor in rectangular_coordinates)))
+        rectangular_coordinates.append(coordinate)
+
+        #print('Rect Dim:', len(rectangular_coordinates),
+        # 'Dist:', sqrt(sum(coor**2 for coor in rectangular_coordinates)))
         return tuple(rectangular_coordinates)
 
     def __len__(self):
@@ -267,7 +272,7 @@ if __name__ == '__main__':
     print(s2.get_cosine_distance_matrix().round(3))
     print(s2.get_average_cosine_distance_matrix().round(3))
     print('\n\n')
-
+    """
     s3 = NSphere(1, 100)
 
     print(f'Circle with 100 points l2 distance and averages')
@@ -281,7 +286,7 @@ if __name__ == '__main__':
     print(s3.get_cosine_distance_matrix().round(3))
     print(s3.get_average_cosine_distance_matrix().round(3))
     print('\n\n')
-
+    """
     s4 = NSphere(3, 10)
     print(f'3-sphere with 10 points l2 distance and averages')
     l2_matrix = s4.get_l2_distance_matrix()
